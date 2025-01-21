@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "go-webapp"
+        DOCKER_CONTAINER_NAME = "go-app"
+        APP_PORT = "8081"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/JeremyRbs/project.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh 'docker build -t ${DOCKER_IMAGE} webapi/.'
+                }
+            }
+        }
+
+        stage('Stop Existing Container') {
+            steps {
+                script {
+                    sh 'docker stop ${DOCKER_CONTAINER_NAME} || true && docker rm ${DOCKER_CONTAINER_NAME} || true'
+                }
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    sh 'docker run -d -p ${APP_PORT}:8081 --name ${DOCKER_CONTAINER_NAME} ${DOCKER_IMAGE}'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Déploiement réussi sur http://localhost:8081'
+        }
+        failure {
+            echo 'Le pipeline a échoué.'
+        }
+    }
+}
