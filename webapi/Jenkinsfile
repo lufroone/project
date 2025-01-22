@@ -3,8 +3,14 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "go-webapp"
+        DOCKER_TAG = "latest"
         DOCKER_CONTAINER_NAME = "go-app"
         APP_PORT = "8081"
+        KUBE_NAMESPACE_DEV = "development"
+        KUBE_NAMESPACE_PROD = "production"
+        DEPLOYMENT_FILE_DEV = "k8s/deployment-dev.yaml"
+        DEPLOYMENT_FILE_PROD = "k8s/deployment-prod.yaml"
+        ENDPOINT_URL = "http://localhost:8081/health"
     }
 
     stages {
@@ -17,23 +23,39 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    bat 'docker build -t %DOCKER_IMAGE% webapi/.'
+                    bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
                 }
             }
         }
 
-        stage('Stop Existing Container') {
+        stage('Load Image to Minikube') {
             steps {
                 script {
-                    bat 'docker stop %DOCKER_CONTAINER_NAME% || exit 0 && docker rm %DOCKER_CONTAINER_NAME% || exit 0'
+                    bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%'
                 }
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Deploy to Development') {
             steps {
                 script {
-                    bat 'docker run -d -p %APP_PORT%:8081 --name %DOCKER_CONTAINER_NAME% %DOCKER_IMAGE%'
+                    bat 'kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%'
+                }
+            }
+        }
+
+        stage('Test Application') {
+            steps {
+                script {
+                    bat 'curl --fail %ENDPOINT_URL% || exit 1'
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                script {
+                    bat 'kubectl apply -f %DEPLOYMENT_FILE_PROD% --namespace=%KUBE_NAMESPACE_PROD%'
                 }
             }
         }
@@ -41,7 +63,7 @@ pipeline {
 
     post {
         success {
-            echo 'Déploiement réussi sur http://localhost:%APP_PORT%'
+            echo 'Déploiement réussi dans les environnements Development et Production.'
         }
         failure {
             echo 'Le pipeline a échoué.'
