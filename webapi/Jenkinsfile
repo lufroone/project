@@ -20,6 +20,17 @@ pipeline {
             }
         }
 
+        stage('Start Minikube') {
+            steps {
+                script {
+                    // Démarrer Minikube si ce n'est pas déjà fait
+                    bat 'minikube start --profile=minikube'
+                    // Vérifier que Minikube est bien démarré
+                    bat 'minikube status --profile=minikube'
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -33,7 +44,6 @@ pipeline {
                 script {
                     // Vérifier d'abord le statut de minikube pour être sûr que le profil existe
                     bat 'minikube profile list'
-        
                     // Charger l'image Docker dans Minikube
                     bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG% --profile=minikube'
                 }
