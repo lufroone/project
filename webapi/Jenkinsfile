@@ -84,14 +84,14 @@ pipeline {
                         docker images | findstr %DOCKER_IMAGE%
                         
                         echo "=== Attente pour s'assurer que l'image est disponible ==="
-                        timeout /t 10
+                        ping -n 10 127.0.0.1 >nul
                         
                         echo "=== Vérification dans Minikube ==="
                         minikube ssh "docker images | grep %DOCKER_IMAGE%"
+                        
+                        REM Attente supplémentaire
+                        ping -n 5 127.0.0.1 >nul
                     '''
-                    
-                    // Ajout d'une pause pour s'assurer que l'image est bien chargée
-                    bat 'timeout /t 5'
                 }
             }
         }
