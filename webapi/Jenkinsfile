@@ -162,25 +162,10 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
-                    // Vérification du tunnel avant le test
                     bat '''
-                        echo "=== Vérification du tunnel avant le test ==="
-                        tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
-                        minikube tunnel status
-                        
-                        echo "=== État des services ==="
-                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
+                        echo "=== Test du service via un pod temporaire ==="
+                        kubectl run curl-test --image=curlimages/curl --rm -i --restart=Never -n %KUBE_NAMESPACE_DEV% -- curl -v --fail --max-time 30 http://go-webapp-service:8081/health || exit 1
                     '''
-                    
-                    // Récupérer l'IP de minikube
-                    bat 'minikube ip > minikube-ip.txt'
-                    def minikubeIp = readFile('minikube-ip.txt').trim()
-                    
-                    // Attendre que le service soit prêt
-                    bat 'ping -n 10 127.0.0.1 >nul'
-                    
-                    // Test avec l'IP de minikube et le nodeport
-                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:8081/ || exit 1"
                 }
             }
         }
