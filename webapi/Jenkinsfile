@@ -136,7 +136,11 @@ pipeline {
                 script {
                     bat '''
                         echo "=== Déploiement de l'application ==="
+                        kubectl delete service go-webapp-service -n %KUBE_NAMESPACE_DEV% --ignore-not-found
                         kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== Forcer le type NodePort ==="
+                        kubectl patch svc go-webapp-service -n %KUBE_NAMESPACE_DEV% -p '{"spec": {"type": "NodePort", "ports": [{"port": 8081, "targetPort": 8081, "nodePort": 30000}]}}'
                         
                         echo "=== Attente du déploiement ==="
                         ping -n 10 127.0.0.1 >nul
