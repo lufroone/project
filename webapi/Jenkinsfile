@@ -59,20 +59,32 @@ pipeline {
                 script {
                     bat '''
                         @echo off
+                        REM Création des ClusterRoleBindings
                         kubectl create clusterrolebinding minikube-rbac --clusterrole=cluster-admin --user=system:node:minikube --group=system:nodes || echo "ClusterRoleBinding already exists"
                         kubectl create clusterrolebinding default-sa --clusterrole=cluster-admin --serviceaccount=default:default || echo "ClusterRoleBinding already exists"
                         kubectl create clusterrolebinding development-sa --clusterrole=cluster-admin --serviceaccount=development:default || echo "ClusterRoleBinding already exists"
                         
-                        echo "=== Création du ServiceAccount dans le namespace development ==="
+                        REM Création des ServiceAccounts
                         kubectl create serviceaccount default -n development || echo "ServiceAccount already exists"
+                        kubectl create serviceaccount jenkins -n development || echo "ServiceAccount already exists"
                         
-                        echo "=== État des ClusterRoleBindings ==="
-                        kubectl get clusterrolebindings | findstr -i minikube-rbac
-                        kubectl get clusterrolebindings | findstr -i default-sa
-                        kubectl get clusterrolebindings | findstr -i development-sa
+                        REM Configuration des permissions spécifiques
+                        kubectl create rolebinding jenkins-admin --clusterrole=admin --serviceaccount=development:jenkins -n development || echo "RoleBinding already exists"
+                        kubectl create rolebinding default-admin --clusterrole=admin --serviceaccount=development:default -n development || echo "RoleBinding already exists"
                         
+                        REM Vérification des configurations
                         echo "=== État des ServiceAccounts ==="
                         kubectl get serviceaccounts -n development
+                        
+                        echo "=== État des RoleBindings ==="
+                        kubectl get rolebindings -n development
+                        
+                        echo "=== État des ClusterRoleBindings ==="
+                        kubectl get clusterrolebindings | findstr -i "minikube-rbac\\|default-sa\\|development-sa"
+                        
+                        echo "=== Vérification des permissions ==="
+                        kubectl auth can-i create deployments --namespace development
+                        kubectl auth can-i create services --namespace development
                     '''
                 }
             }
