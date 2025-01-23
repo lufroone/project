@@ -8,8 +8,8 @@ pipeline {
         APP_PORT = "8081"
         KUBE_NAMESPACE_DEV = "development"
         KUBE_NAMESPACE_PROD = "production"
-        DEPLOYMENT_FILE_DEV = "k8s/deployment-dev.yaml"
-        DEPLOYMENT_FILE_PROD = "k8s/deployment-prod.yaml"
+        DEPLOYMENT_FILE_DEV = "webapi/k8s/deployment-dev.yaml"
+        DEPLOYMENT_FILE_PROD = "webapi/k8s/deployment-prod.yaml"
         ENDPOINT_URL = "http://localhost:8081/health"
     }
 
