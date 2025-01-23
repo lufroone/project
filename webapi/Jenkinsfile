@@ -71,13 +71,21 @@ pipeline {
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    bat 'minikube docker-env > docker-env.bat'
-                    bat 'call docker-env.bat'
-                    bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
-                    // Debug des images Docker
+                    // Configuration de l'environnement Docker pour Minikube
                     bat '''
-                        echo "=== Images Docker disponibles ==="
-                        docker images | findstr go-webapp
+                        @echo off
+                        minikube -p minikube docker-env | FOR /f "tokens=*" %%i IN ('more') DO @echo %%i > docker-env.bat
+                        call docker-env.bat
+                        
+                        echo "=== Building Docker image in Minikube context ==="
+                        cd webapi
+                        docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% .
+                        
+                        echo "=== Vérification de l'image construite ==="
+                        docker images | findstr %DOCKER_IMAGE%
+                        
+                        echo "=== État du contexte Docker ==="
+                        docker context ls
                     '''
                 }
             }
@@ -87,17 +95,16 @@ pipeline {
             steps {
                 script {
                     bat 'kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%'
-                    // Debug du déploiement
                     bat '''
                         echo "=== État du déploiement ==="
                         kubectl get deployments -n %KUBE_NAMESPACE_DEV%
+                        
                         echo "=== État des pods ==="
                         kubectl get pods -n %KUBE_NAMESPACE_DEV%
-                        echo "=== Logs des pods ==="
-                        for /f "tokens=1" %%p in ('kubectl get pods -n %KUBE_NAMESPACE_DEV% -o name') do (
-                            echo "Logs for %%p:"
-                            kubectl logs %%p -n %KUBE_NAMESPACE_DEV%
-                        )
+                        
+                        echo "=== Images disponibles dans Minikube ==="
+                        minikube ssh "docker images | grep go-webapp"
+                        
                         echo "=== Description des pods ==="
                         kubectl describe pods -n %KUBE_NAMESPACE_DEV%
                     '''
