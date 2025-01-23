@@ -33,8 +33,9 @@ pipeline {
                 script {
                     bat '''
                         minikube delete
-                        minikube start --driver=docker --force --validate=false --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
+                        minikube start --driver=docker --force --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
                         minikube addons enable storage-provisioner
+                        timeout /t 30
                     '''
                 }
             }
