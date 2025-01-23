@@ -36,14 +36,20 @@ pipeline {
             }
         }
 
+        stage('Create Namespaces') {
+            steps {
+                script {
+                    bat 'kubectl create namespace %KUBE_NAMESPACE_DEV% --dry-run=client -o yaml | kubectl apply -f -'
+                    bat 'kubectl create namespace %KUBE_NAMESPACE_PROD% --dry-run=client -o yaml | kubectl apply -f -'
+                }
+            }
+        }
+
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    // Configuration de l'environnement Docker pour Minikube
                     bat 'minikube docker-env > docker-env.bat'
                     bat 'call docker-env.bat'
-                    
-                    // Construction de l'image
                     bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
                 }
             }
