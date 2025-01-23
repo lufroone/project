@@ -31,7 +31,11 @@ pipeline {
         stage('Start minikube') {
             steps {
                 script {
-                    bat 'minikube start --driver=docker'
+                    bat '''
+                        minikube delete
+                        minikube start --driver=docker --force --validate=false --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
+                        minikube addons enable storage-provisioner
+                    '''
                 }
             }
         }
@@ -41,6 +45,18 @@ pipeline {
                 script {
                     bat 'kubectl create namespace %KUBE_NAMESPACE_DEV% --dry-run=client -o yaml | kubectl apply -f -'
                     bat 'kubectl create namespace %KUBE_NAMESPACE_PROD% --dry-run=client -o yaml | kubectl apply -f -'
+                }
+            }
+        }
+
+        stage('Configure RBAC') {
+            steps {
+                script {
+                    // Créer un ClusterRoleBinding pour le kubelet
+                    bat '''
+                        kubectl create clusterrolebinding minikube-rbac --clusterrole=cluster-admin --user=system:node:minikube --group=system:nodes
+                        kubectl create clusterrolebinding default-sa --clusterrole=cluster-admin --serviceaccount=default:default
+                    '''
                 }
             }
         }
@@ -66,11 +82,18 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
-                    // Attendre que les pods soient prêts
-                    bat 'kubectl wait --for=condition=ready pod -l app=go-webapp --namespace=%KUBE_NAMESPACE_DEV% --timeout=60s'
+                    // Vérifier l'état du déploiement
+                    bat 'kubectl rollout status deployment/go-webapp -n %KUBE_NAMESPACE_DEV% --timeout=120s'
                     
-                    // Debug - afficher l'état des services
-                    bat 'kubectl get services -n %KUBE_NAMESPACE_DEV%'
+                    // Attendre que les pods soient prêts avec un timeout plus long
+                    bat 'kubectl wait --for=condition=ready pod -l app=go-webapp --namespace=%KUBE_NAMESPACE_DEV% --timeout=120s'
+                    
+                    // Debug - afficher plus d'informations
+                    bat '''
+                        kubectl get pods -n %KUBE_NAMESPACE_DEV% -o wide
+                        kubectl describe pods -n %KUBE_NAMESPACE_DEV%
+                        kubectl get services -n %KUBE_NAMESPACE_DEV%
+                    '''
                     
                     // Récupérer l'IP de minikube
                     bat 'minikube ip > minikube-ip.txt'
