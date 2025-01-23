@@ -58,11 +58,21 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        kubectl create clusterrolebinding minikube-rbac --clusterrole=cluster-admin --user=system:node:minikube --group=system:nodes
-                        kubectl create clusterrolebinding default-sa --clusterrole=cluster-admin --serviceaccount=default:default
+                        @echo off
+                        kubectl create clusterrolebinding minikube-rbac --clusterrole=cluster-admin --user=system:node:minikube --group=system:nodes || echo "ClusterRoleBinding already exists"
+                        kubectl create clusterrolebinding default-sa --clusterrole=cluster-admin --serviceaccount=default:default || echo "ClusterRoleBinding already exists"
+                        kubectl create clusterrolebinding development-sa --clusterrole=cluster-admin --serviceaccount=development:default || echo "ClusterRoleBinding already exists"
+                        
+                        echo "=== Création du ServiceAccount dans le namespace development ==="
+                        kubectl create serviceaccount default -n development || echo "ServiceAccount already exists"
+                        
                         echo "=== État des ClusterRoleBindings ==="
-                        kubectl get clusterrolebindings | findstr minikube-rbac
-                        kubectl get clusterrolebindings | findstr default-sa
+                        kubectl get clusterrolebindings | findstr -i minikube-rbac
+                        kubectl get clusterrolebindings | findstr -i default-sa
+                        kubectl get clusterrolebindings | findstr -i development-sa
+                        
+                        echo "=== État des ServiceAccounts ==="
+                        kubectl get serviceaccounts -n development
                     '''
                 }
             }
