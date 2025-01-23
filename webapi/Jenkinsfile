@@ -39,11 +39,11 @@ pipeline {
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    // Évaluer le contexte docker de minikube
-                    bat 'minikube -p minikube docker-env | Foreach-Object { if ($_ -match "^SET") { $_ } } > docker-env.bat'
+                    // Configuration de l'environnement Docker pour Minikube
+                    bat 'minikube docker-env > docker-env.bat'
                     bat 'call docker-env.bat'
                     
-                    // Reconstruire l'image directement dans le contexte de minikube
+                    // Construction de l'image
                     bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
                 }
             }
