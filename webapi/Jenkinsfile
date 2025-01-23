@@ -23,7 +23,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
+                    echo "Skip building local image - will be built in Minikube context"
                 }
             }
         }
@@ -39,8 +39,12 @@ pipeline {
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    // Charger l'image Docker dans Minikube
-                    bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%'
+                    // Évaluer le contexte docker de minikube
+                    bat 'minikube -p minikube docker-env | Foreach-Object { if ($_ -match "^SET") { $_ } } > docker-env.bat'
+                    bat 'call docker-env.bat'
+                    
+                    // Reconstruire l'image directement dans le contexte de minikube
+                    bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
                 }
             }
         }
