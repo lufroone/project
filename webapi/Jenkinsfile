@@ -32,32 +32,22 @@ pipeline {
             steps {
                 script {
                     bat '''
+                        @echo off
+                        echo "=== Arrêt du tunnel existant ==="
+                        taskkill /F /IM "minikube.exe" /FI "WINDOWTITLE eq tunnel*" 2>NUL || echo "Aucun tunnel en cours"
+                        
                         minikube delete
                         minikube start --driver=docker --force --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
-                        minikube addons enable storage-provisioner
                         
                         echo "=== Démarrage du tunnel minikube en arrière-plan ==="
                         start /B cmd /c "minikube tunnel > tunnel.log 2>&1"
                         
                         echo "=== Attente pour l'établissement du tunnel ==="
-                        ping -n 10 127.0.0.1 >nul
+                        ping -n 15 127.0.0.1 >nul
                         
                         echo "=== Vérification du tunnel ==="
                         type tunnel.log
-                        
-                        echo "=== Vérification du processus tunnel ==="
                         tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
-                        
-                        echo "=== Vérification de la connectivité des services ==="
-                        minikube service list
-                        
-                        echo "=== Test de connexion basique ==="
-                        kubectl run test-nginx --image=nginx --port=80 --namespace=default
-                        kubectl expose pod test-nginx --type=LoadBalancer --port=80 --namespace=default
-                        ping -n 10 127.0.0.1 >nul
-                        kubectl get service test-nginx -n default
-                        kubectl delete service test-nginx -n default
-                        kubectl delete pod test-nginx -n default
                     '''
                 }
             }
@@ -144,19 +134,19 @@ pipeline {
         stage('Deploy to Development') {
             steps {
                 script {
-                    bat 'kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%'
                     bat '''
-                        echo "=== État du déploiement ==="
-                        kubectl get deployments -n %KUBE_NAMESPACE_DEV%
+                        echo "=== Déploiement de l'application ==="
+                        kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%
                         
-                        echo "=== État des pods ==="
-                        kubectl get pods -n %KUBE_NAMESPACE_DEV%
+                        echo "=== Attente du déploiement ==="
+                        ping -n 10 127.0.0.1 >nul
                         
-                        echo "=== Images disponibles dans Minikube ==="
-                        minikube ssh "docker images | grep go-webapp"
+                        echo "=== Vérification du service ==="
+                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
+                        kubectl describe service go-webapp-service -n %KUBE_NAMESPACE_DEV%
                         
-                        echo "=== Description des pods ==="
-                        kubectl describe pods -n %KUBE_NAMESPACE_DEV%
+                        echo "=== Vérification des endpoints ==="
+                        kubectl get endpoints -n %KUBE_NAMESPACE_DEV%
                     '''
                 }
             }
