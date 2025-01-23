@@ -71,11 +71,9 @@ pipeline {
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    // Configuration de l'environnement Docker pour Minikube
                     bat '''
                         @echo off
-                        minikube -p minikube docker-env | FOR /f "tokens=*" %%i IN ('more') DO @echo %%i > docker-env.bat
-                        call docker-env.bat
+                        FOR /f "tokens=*" %%i IN ('minikube docker-env') DO %%i
                         
                         echo "=== Building Docker image in Minikube context ==="
                         cd webapi
@@ -84,8 +82,11 @@ pipeline {
                         echo "=== Vérification de l'image construite ==="
                         docker images | findstr %DOCKER_IMAGE%
                         
-                        echo "=== État du contexte Docker ==="
-                        docker context ls
+                        echo "=== Vérification dans Minikube ==="
+                        minikube image ls | findstr %DOCKER_IMAGE%
+                        
+                        echo "=== Copie de l'image dans Minikube ==="
+                        minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%
                     '''
                 }
             }
