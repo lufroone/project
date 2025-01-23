@@ -20,6 +20,23 @@ pipeline {
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    bat 'docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% webapi/.'
+                }
+            }
+        }
+
+        stage('Load Image to Minikube') {
+            steps {
+                script {
+                    // Charger l'image Docker dans Minikube
+                    bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%'
+                }
+            }
+        }
+
         stage('Deploy to Development') {
             steps {
                 script {
