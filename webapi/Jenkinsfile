@@ -164,6 +164,12 @@ pipeline {
                         
                         echo "=== État des pods ==="
                         kubectl get pods -n %KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== Logs des pods ==="
+                        for /f "tokens=1" %%p in ('kubectl get pods -n %KUBE_NAMESPACE_DEV% -o name') do (
+                            echo "=== Logs pour %%p ==="
+                            kubectl logs %%p -n %KUBE_NAMESPACE_DEV%
+                        )
                     '''
                     
                     // Récupérer l'IP de minikube
@@ -171,10 +177,10 @@ pipeline {
                     def minikubeIp = readFile('minikube-ip.txt').trim()
                     
                     echo "Minikube IP: ${minikubeIp}"
-                    echo "Testing URL: http://${minikubeIp}:30000/health"
+                    echo "Testing URL: http://${minikubeIp}:8081/health"
                     
-                    // Test avec curl sur le NodePort 30000
-                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:30000/health || exit 1"
+                    // Test avec curl sur le port 8081
+                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:8081/health || exit 1"
                 }
             }
         }
