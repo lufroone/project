@@ -133,32 +133,50 @@ pipeline {
                     // Attendre que le service soit prêt
                     bat 'ping -n 30 127.0.0.1 >nul'
                     
+                    // Debug des services et pods
+                    bat '''
+                        echo "=== État complet des services ==="
+                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
+                        
+                        echo "=== Description détaillée du service ==="
+                        kubectl describe service go-webapp-service -n %KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== État des pods ==="
+                        kubectl get pods -n %KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== Description des pods ==="
+                        kubectl describe pods -n %KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== Logs des pods ==="
+                        for /f "tokens=1" %%p in ('kubectl get pods -n %KUBE_NAMESPACE_DEV% -o name') do (
+                            echo "=== Logs pour %%p ==="
+                            kubectl logs %%p -n %KUBE_NAMESPACE_DEV%
+                        )
+                        
+                        echo "=== YAML complet du service ==="
+                        kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o yaml
+                    '''
+                    
                     // Récupérer l'IP de minikube
                     bat 'minikube ip > minikube-ip.txt'
                     def minikubeIp = readFile('minikube-ip.txt').trim()
                     
-                    // Récupérer le NodePort du service
-                    bat '''
-                        echo "=== Services disponibles ==="
-                        kubectl get services -n %KUBE_NAMESPACE_DEV%
-                        
-                        echo "=== NodePort du service ==="
-                        kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV%
-                    '''
+                    // Tenter de récupérer le NodePort avec plus de debug
+                    bat 'kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=jsonpath="{.spec.ports[*]}" > ports.txt'
+                    def ports = readFile('ports.txt').trim()
+                    echo "Ports configuration: ${ports}"
                     
-                    // Extraire le NodePort et vérifier qu'il est bien récupéré
                     bat 'kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=jsonpath="{.spec.ports[0].nodePort}" > nodeport.txt'
                     def nodePort = readFile('nodeport.txt').trim()
                     
                     echo "Minikube IP: ${minikubeIp}"
                     echo "NodePort: ${nodePort}"
                     
-                    // Vérifier que le port est bien défini
                     if (nodePort?.trim()) {
                         echo "Testing URL: http://${minikubeIp}:${nodePort}/health"
                         bat "curl -v --fail --max-time 30 http://${minikubeIp}:${nodePort}/health || exit 1"
                     } else {
-                        error "NodePort non trouvé pour le service go-webapp-service"
+                        error "NodePort non trouvé pour le service go-webapp-service. Vérifiez les logs ci-dessus."
                     }
                 }
             }
