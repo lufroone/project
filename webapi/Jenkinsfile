@@ -24,7 +24,7 @@ pipeline {
             steps {
                 script {
                     // Démarrer Minikube si ce n'est pas déjà fait
-                    bat 'minikube start --profile=minikube'
+                    bat 'minikube start --profile=minikube --extra-config=apiserver.authorization-mode=RBAC'
                     // Vérifier que Minikube est bien démarré
                     bat 'minikube status --profile=minikube'
                 }
