@@ -130,35 +130,36 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
-                    // Attendre un peu plus longtemps pour que le service soit prêt
+                    // Attendre que le service soit prêt
                     bat 'ping -n 30 127.0.0.1 >nul'
-                    
-                    // Debug des services
-                    bat '''
-                        echo "=== Services disponibles ==="
-                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
-                        echo "=== Description du service ==="
-                        kubectl describe service go-webapp-service -n %KUBE_NAMESPACE_DEV%
-                    '''
                     
                     // Récupérer l'IP de minikube
                     bat 'minikube ip > minikube-ip.txt'
                     def minikubeIp = readFile('minikube-ip.txt').trim()
                     
-                    // Récupérer le NodePort avec plus de debug
+                    // Récupérer le NodePort du service
                     bat '''
+                        echo "=== Services disponibles ==="
+                        kubectl get services -n %KUBE_NAMESPACE_DEV%
+                        
                         echo "=== NodePort du service ==="
-                        kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=yaml
+                        kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV%
                     '''
+                    
+                    // Extraire le NodePort et vérifier qu'il est bien récupéré
                     bat 'kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=jsonpath="{.spec.ports[0].nodePort}" > nodeport.txt'
                     def nodePort = readFile('nodeport.txt').trim()
                     
                     echo "Minikube IP: ${minikubeIp}"
                     echo "NodePort: ${nodePort}"
                     
-                    // Test avec curl et plus de verbosité
-                    echo "Testing URL: http://${minikubeIp}:${nodePort}/health"
-                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:${nodePort}/health || exit 1"
+                    // Vérifier que le port est bien défini
+                    if (nodePort?.trim()) {
+                        echo "Testing URL: http://${minikubeIp}:${nodePort}/health"
+                        bat "curl -v --fail --max-time 30 http://${minikubeIp}:${nodePort}/health || exit 1"
+                    } else {
+                        error "NodePort non trouvé pour le service go-webapp-service"
+                    }
                 }
             }
         }
