@@ -24,9 +24,7 @@ pipeline {
             steps {
                 script {
                     // Démarrer Minikube si ce n'est pas déjà fait
-                    bat 'minikube start --profile=minikube --extra-config=apiserver.authorization-mode=RBAC'
-                    // Vérifier que Minikube est bien démarré
-                    bat 'minikube status --profile=minikube'
+                    bat 'minikube start'
                 }
             }
         }
@@ -42,10 +40,8 @@ pipeline {
         stage('Load Image to Minikube') {
             steps {
                 script {
-                    // Vérifier d'abord le statut de minikube pour être sûr que le profil existe
-                    bat 'minikube profile list'
                     // Charger l'image Docker dans Minikube
-                    bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG% --profile=minikube'
+                    bat 'minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%'
                 }
             }
         }
