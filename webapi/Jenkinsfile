@@ -35,6 +35,15 @@ pipeline {
                         minikube delete
                         minikube start --driver=docker --force --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
                         minikube addons enable storage-provisioner
+                        
+                        echo "=== Démarrage du tunnel minikube en arrière-plan ==="
+                        start /B cmd /c "minikube tunnel > tunnel.log 2>&1"
+                        
+                        echo "=== Attente pour l'établissement du tunnel ==="
+                        ping -n 10 127.0.0.1 >nul
+                        
+                        echo "=== Vérification du tunnel ==="
+                        type tunnel.log
                     '''
                 }
             }
@@ -180,6 +189,14 @@ pipeline {
     }
 
     post {
+        always {
+            script {
+                bat '''
+                    echo "=== Arrêt du tunnel minikube ==="
+                    taskkill /F /IM "minikube.exe" /FI "WINDOWTITLE eq tunnel*"
+                '''
+            }
+        }
         success {
             echo 'Déploiement réussi dans les environnements Development et Production.'
         }
