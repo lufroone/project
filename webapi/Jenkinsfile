@@ -66,17 +66,27 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
+                    // Attendre que les pods soient prêts
+                    bat 'kubectl wait --for=condition=ready pod -l app=go-webapp --namespace=%KUBE_NAMESPACE_DEV% --timeout=60s'
+                    
+                    // Debug - afficher l'état des services
+                    bat 'kubectl get services -n %KUBE_NAMESPACE_DEV%'
+                    
                     // Récupérer l'IP de minikube
                     bat 'minikube ip > minikube-ip.txt'
                     def minikubeIp = readFile('minikube-ip.txt').trim()
                     
-                    // Récupérer le NodePort du service
-                    bat 'kubectl get service go-webapp-service --namespace=%KUBE_NAMESPACE_DEV% -o jsonpath="{.spec.ports[0].nodePort}" > nodeport.txt'
+                    // Récupérer le NodePort du service avec une commande plus robuste
+                    bat 'kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=jsonpath="{.spec.ports[0].nodePort}" > nodeport.txt'
                     def nodePort = readFile('nodeport.txt').trim()
                     
-                    // Construire l'URL et tester
-                    def serviceUrl = "http://${minikubeIp}:${nodePort}"
-                    bat "curl --fail ${serviceUrl}/health || exit 1"
+                    // Debug - afficher les valeurs
+                    echo "Minikube IP: ${minikubeIp}"
+                    echo "NodePort: ${nodePort}"
+                    
+                    // Construire l'URL et tester avec un timeout plus court
+                    echo "Testing URL: http://${minikubeIp}:${nodePort}/health"
+                    bat "curl --fail --max-time 10 http://${minikubeIp}:${nodePort}/health || exit 1"
                 }
             }
         }
