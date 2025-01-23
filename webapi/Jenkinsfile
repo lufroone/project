@@ -44,6 +44,20 @@ pipeline {
                         
                         echo "=== Vérification du tunnel ==="
                         type tunnel.log
+                        
+                        echo "=== Vérification du processus tunnel ==="
+                        tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
+                        
+                        echo "=== Vérification de la connectivité des services ==="
+                        minikube service list
+                        
+                        echo "=== Test de connexion basique ==="
+                        kubectl run test-nginx --image=nginx --port=80 --namespace=default
+                        kubectl expose pod test-nginx --type=LoadBalancer --port=80 --namespace=default
+                        ping -n 10 127.0.0.1 >nul
+                        kubectl get service test-nginx -n default
+                        kubectl delete service test-nginx -n default
+                        kubectl delete pod test-nginx -n default
                     '''
                 }
             }
@@ -151,36 +165,32 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
+                    // Vérification du tunnel avant le test
+                    bat '''
+                        echo "=== Vérification du tunnel avant le test ==="
+                        tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
+                        minikube tunnel status
+                        
+                        echo "=== État des services ==="
+                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
+                        minikube service go-webapp-service --url -n %KUBE_NAMESPACE_DEV%
+                    '''
+                    
                     // Attendre que le service soit prêt
                     bat 'ping -n 30 127.0.0.1 >nul'
                     
-                    // Debug des services et pods
+                    // Utiliser port-forward comme alternative
                     bat '''
-                        echo "=== État complet des services ==="
-                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
-                        
-                        echo "=== Description détaillée du service ==="
-                        kubectl describe service go-webapp-service -n %KUBE_NAMESPACE_DEV%
-                        
-                        echo "=== État des pods ==="
-                        kubectl get pods -n %KUBE_NAMESPACE_DEV%
-                        
-                        echo "=== Logs des pods ==="
-                        for /f "tokens=1" %%p in ('kubectl get pods -n %KUBE_NAMESPACE_DEV% -o name') do (
-                            echo "=== Logs pour %%p ==="
-                            kubectl logs %%p -n %KUBE_NAMESPACE_DEV%
-                        )
+                        echo "=== Tentative avec port-forward ==="
+                        start /B kubectl port-forward service/go-webapp-service 8081:8081 -n %KUBE_NAMESPACE_DEV%
+                        ping -n 5 127.0.0.1 >nul
                     '''
                     
-                    // Récupérer l'IP de minikube
-                    bat 'minikube ip > minikube-ip.txt'
-                    def minikubeIp = readFile('minikube-ip.txt').trim()
+                    // Test sur localhost via port-forward
+                    bat 'curl -v --fail --max-time 30 http://localhost:8081/health || exit 1'
                     
-                    echo "Minikube IP: ${minikubeIp}"
-                    echo "Testing URL: http://${minikubeIp}:8081/health"
-                    
-                    // Test avec curl sur le port 8081
-                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:8081/health || exit 1"
+                    // Nettoyage du port-forward
+                    bat 'taskkill /F /IM "kubectl.exe" /FI "WINDOWTITLE eq port-forward*"'
                 }
             }
         }
