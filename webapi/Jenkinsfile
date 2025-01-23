@@ -173,24 +173,26 @@ pipeline {
                         
                         echo "=== État des services ==="
                         kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
-                        minikube service go-webapp-service --url -n %KUBE_NAMESPACE_DEV%
+                        
+                        echo "=== Obtention de l'URL du service ==="
+                        start /B /wait cmd /c "minikube service go-webapp-service -n %KUBE_NAMESPACE_DEV% > service-url.txt 2>&1"
+                        type service-url.txt
+                        
+                        echo "=== Extraction de l'URL du service ==="
+                        for /f "tokens=2" %%a in ('findstr /C:"http://" service-url.txt') do set SERVICE_URL=%%a
+                        echo Service URL: %SERVICE_URL%
                     '''
                     
                     // Attendre que le service soit prêt
-                    bat 'ping -n 30 127.0.0.1 >nul'
+                    bat 'ping -n 10 127.0.0.1 >nul'
                     
-                    // Utiliser port-forward comme alternative
+                    // Test avec l'URL du service
                     bat '''
-                        echo "=== Tentative avec port-forward ==="
-                        start /B kubectl port-forward service/go-webapp-service 8081:8081 -n %KUBE_NAMESPACE_DEV%
-                        ping -n 5 127.0.0.1 >nul
+                        echo "=== Test du service ==="
+                        for /f "tokens=2" %%a in ('findstr /C:"http://" service-url.txt') do (
+                            curl -v --fail --max-time 30 %%a/health || exit 1
+                        )
                     '''
-                    
-                    // Test sur localhost via port-forward
-                    bat 'curl -v --fail --max-time 30 http://localhost:8081/health || exit 1'
-                    
-                    // Nettoyage du port-forward
-                    bat 'taskkill /F /IM "kubectl.exe" /FI "WINDOWTITLE eq port-forward*"'
                 }
             }
         }
