@@ -73,7 +73,8 @@ pipeline {
                 script {
                     bat '''
                         @echo off
-                        FOR /f "tokens=*" %%i IN ('minikube docker-env') DO %%i
+                        REM Configuration de l'environnement Docker de Minikube
+                        FOR /f "tokens=*" %%i IN ('minikube -p minikube docker-env') DO @%%i
                         
                         echo "=== Building Docker image in Minikube context ==="
                         cd webapi
@@ -82,12 +83,15 @@ pipeline {
                         echo "=== Vérification de l'image construite ==="
                         docker images | findstr %DOCKER_IMAGE%
                         
-                        echo "=== Vérification dans Minikube ==="
-                        minikube image ls | findstr %DOCKER_IMAGE%
+                        echo "=== Attente pour s'assurer que l'image est disponible ==="
+                        timeout /t 10
                         
-                        echo "=== Copie de l'image dans Minikube ==="
-                        minikube image load %DOCKER_IMAGE%:%DOCKER_TAG%
+                        echo "=== Vérification dans Minikube ==="
+                        minikube ssh "docker images | grep %DOCKER_IMAGE%"
                     '''
+                    
+                    // Ajout d'une pause pour s'assurer que l'image est bien chargée
+                    bat 'timeout /t 5'
                 }
             }
         }
