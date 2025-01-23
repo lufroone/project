@@ -36,17 +36,20 @@ pipeline {
                         echo "=== Arrêt du tunnel existant ==="
                         taskkill /F /IM "minikube.exe" /FI "WINDOWTITLE eq tunnel*" 2>NUL || echo "Aucun tunnel en cours"
                         
+                        echo "=== Suppression des processus minikube ==="
+                        taskkill /F /IM "minikube.exe" 2>NUL || echo "Aucun processus minikube"
+                        
                         minikube delete
                         minikube start --driver=docker --force --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
                         
                         echo "=== Démarrage du tunnel minikube en arrière-plan ==="
-                        start /B cmd /c "minikube tunnel > tunnel.log 2>&1"
+                        start /B cmd /c "minikube tunnel"
                         
                         echo "=== Attente pour l'établissement du tunnel ==="
-                        ping -n 15 127.0.0.1 >nul
+                        ping -n 30 127.0.0.1 >nul
                         
                         echo "=== Vérification du tunnel ==="
-                        type tunnel.log
+                        minikube tunnel status
                         tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
                     '''
                 }
@@ -140,7 +143,7 @@ pipeline {
                         kubectl apply -f %DEPLOYMENT_FILE_DEV% --namespace=%KUBE_NAMESPACE_DEV%
                         
                         echo "=== Forcer le type NodePort ==="
-                        kubectl patch svc go-webapp-service -n %KUBE_NAMESPACE_DEV% -p '{"spec": {"type": "NodePort", "ports": [{"port": 8081, "targetPort": 8081, "nodePort": 30000}]}}'
+                        kubectl patch svc go-webapp-service -n %KUBE_NAMESPACE_DEV% -p "{\\\"spec\\\": {\\\"type\\\": \\\"NodePort\\\", \\\"ports\\\": [{\\\"port\\\": 8081, \\\"targetPort\\\": 8081, \\\"nodePort\\\": 30000}]}}"
                         
                         echo "=== Attente du déploiement ==="
                         ping -n 10 127.0.0.1 >nul
