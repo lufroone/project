@@ -173,26 +173,17 @@ pipeline {
                         
                         echo "=== État des services ==="
                         kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
-                        
-                        echo "=== Obtention de l'URL du service ==="
-                        start /B /wait cmd /c "minikube service go-webapp-service -n %KUBE_NAMESPACE_DEV% > service-url.txt 2>&1"
-                        type service-url.txt
-                        
-                        echo "=== Extraction de l'URL du service ==="
-                        for /f "tokens=2" %%a in ('findstr /C:"http://" service-url.txt') do set SERVICE_URL=%%a
-                        echo Service URL: %SERVICE_URL%
                     '''
+                    
+                    // Récupérer l'IP de minikube
+                    bat 'minikube ip > minikube-ip.txt'
+                    def minikubeIp = readFile('minikube-ip.txt').trim()
                     
                     // Attendre que le service soit prêt
                     bat 'ping -n 10 127.0.0.1 >nul'
                     
-                    // Test avec l'URL du service
-                    bat '''
-                        echo "=== Test du service ==="
-                        for /f "tokens=2" %%a in ('findstr /C:"http://" service-url.txt') do (
-                            curl -v --fail --max-time 30 %%a/health || exit 1
-                        )
-                    '''
+                    // Test avec l'IP de minikube et le nodeport
+                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:30000/health || exit 1"
                 }
             }
         }
