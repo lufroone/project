@@ -120,34 +120,35 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
-                    // Vérifier l'état du déploiement
-                    bat 'kubectl rollout status deployment/go-webapp -n %KUBE_NAMESPACE_DEV% --timeout=120s'
+                    // Attendre un peu plus longtemps pour que le service soit prêt
+                    bat 'ping -n 30 127.0.0.1 >nul'
                     
-                    // Attendre que les pods soient prêts avec un timeout plus long
-                    bat 'kubectl wait --for=condition=ready pod -l app=go-webapp --namespace=%KUBE_NAMESPACE_DEV% --timeout=120s'
-                    
-                    // Debug - afficher plus d'informations
+                    // Debug des services
                     bat '''
-                        kubectl get pods -n %KUBE_NAMESPACE_DEV% -o wide
-                        kubectl describe pods -n %KUBE_NAMESPACE_DEV%
-                        kubectl get services -n %KUBE_NAMESPACE_DEV%
+                        echo "=== Services disponibles ==="
+                        kubectl get services -n %KUBE_NAMESPACE_DEV% -o wide
+                        echo "=== Description du service ==="
+                        kubectl describe service go-webapp-service -n %KUBE_NAMESPACE_DEV%
                     '''
                     
                     // Récupérer l'IP de minikube
                     bat 'minikube ip > minikube-ip.txt'
                     def minikubeIp = readFile('minikube-ip.txt').trim()
                     
-                    // Récupérer le NodePort du service avec une commande plus robuste
+                    // Récupérer le NodePort avec plus de debug
+                    bat '''
+                        echo "=== NodePort du service ==="
+                        kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=yaml
+                    '''
                     bat 'kubectl get service go-webapp-service -n %KUBE_NAMESPACE_DEV% -o=jsonpath="{.spec.ports[0].nodePort}" > nodeport.txt'
                     def nodePort = readFile('nodeport.txt').trim()
                     
-                    // Debug - afficher les valeurs
                     echo "Minikube IP: ${minikubeIp}"
                     echo "NodePort: ${nodePort}"
                     
-                    // Construire l'URL et tester avec un timeout plus court
+                    // Test avec curl et plus de verbosité
                     echo "Testing URL: http://${minikubeIp}:${nodePort}/health"
-                    bat "curl --fail --max-time 10 http://${minikubeIp}:${nodePort}/health || exit 1"
+                    bat "curl -v --fail --max-time 30 http://${minikubeIp}:${nodePort}/health || exit 1"
                 }
             }
         }
