@@ -29,6 +29,15 @@ pipeline {
             }
         }
 
+        stage('Update Minikube Configuration') {
+            steps {
+                script {
+                    bat 'kubeadm config migrate --old-config ~/.minikube/config/config.yaml --new-config ~/.minikube/config/new-config.yaml'
+                    bat 'minikube start --profile=minikube --extra-config=apiserver.authorization-mode=RBAC --config=~/.minikube/config/new-config.yaml'
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
