@@ -66,7 +66,9 @@ pipeline {
         stage('Test Application') {
             steps {
                 script {
-                    bat 'curl --fail %ENDPOINT_URL% || exit 1'
+                    bat 'minikube service go-webapp-service --namespace=%KUBE_NAMESPACE_DEV% --url > service-url.txt'
+                    def serviceUrl = readFile('service-url.txt').trim()
+                    bat "curl --fail ${serviceUrl}/health || exit 1"
                 }
             }
         }
