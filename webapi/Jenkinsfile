@@ -57,6 +57,9 @@ pipeline {
                 script {
                     bat '''
                         @echo off
+                        echo "=== Nettoyage des conteneurs existants ==="
+                        docker rm -f prometheus grafana 2>NUL || echo "Aucun conteneur à nettoyer"
+                        
                         echo "=== Installation de Prometheus ==="
                         docker run -d --name prometheus ^
                             -p 9090:9090 ^
