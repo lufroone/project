@@ -74,7 +74,11 @@ pipeline {
                         ping -n 30 127.0.0.1 >nul
                         
                         echo "=== Vérification des conteneurs ==="
-                        docker ps | findstr "prometheus\\|grafana"
+                        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | findstr /I "prometheus grafana"
+                        
+                        echo "=== Test de connexion aux services ==="
+                        curl -s -o nul -w "Prometheus Status: %%{http_code}\\n" http://localhost:9090/-/healthy || echo "Prometheus n'est pas accessible"
+                        curl -s -o nul -w "Grafana Status: %%{http_code}\\n" http://localhost:3000/api/health || echo "Grafana n'est pas accessible"
                         
                         echo "=== URLs d'accès ==="
                         echo "Prometheus: http://localhost:9090"
