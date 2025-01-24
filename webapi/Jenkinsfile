@@ -57,45 +57,42 @@ pipeline {
                 script {
                     bat '''
                         @echo off
-                        echo "=== Installation de Helm ==="
-                        choco install kubernetes-helm -y
+                        echo "=== Nettoyage des conteneurs existants ==="
+                        docker rm -f prometheus grafana 2>NUL || echo "Aucun conteneur à nettoyer"
                         
-                        echo "=== Ajout des repos Helm ==="
-                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-                        helm repo add grafana https://grafana.github.io/helm-charts
-                        helm repo update
+                        echo "=== Création du fichier de configuration Prometheus ==="
+                        (
+                        echo global:
+                        echo   scrape_interval: 15s
+                        echo scrape_configs:
+                        echo   - job_name: 'go-webapp'
+                        echo     static_configs:
+                        echo       - targets: ['localhost:30000']
+                        ) > prometheus.yml
                         
-                        echo "=== Nettoyage des installations existantes ==="
-                        helm uninstall prometheus || echo "Prometheus n'était pas installé"
-                        helm uninstall grafana || echo "Grafana n'était pas installé"
+                        echo "=== Installation de Prometheus ==="
+                        docker run -d --name prometheus ^
+                            -p 9090:9090 ^
+                            -v %CD%/prometheus.yml:/etc/prometheus/prometheus.yml ^
+                            prom/prometheus
                         
-                        echo "=== Installation de Prometheus avec Helm ==="
-                        helm install prometheus prometheus-community/prometheus ^
-                            --set server.service.type=NodePort ^
-                            --set server.service.nodePort=30090
+                        echo "=== Installation de Grafana ==="
+                        docker run -d --name grafana ^
+                            -p 3000:3000 ^
+                            -e "GF_SECURITY_ADMIN_PASSWORD=admin" ^
+                            -e "GF_SECURITY_ADMIN_USER=admin" ^
+                            grafana/grafana
                         
-                        echo "=== Installation de Grafana avec Helm ==="
-                        helm install grafana grafana/grafana ^
-                            --set service.type=NodePort ^
-                            --set service.nodePort=30300 ^
-                            --set persistence.enabled=false
-                        
-                        echo "=== Attente du déploiement ==="
+                        echo "=== Attente du démarrage des services ==="
                         ping -n 30 127.0.0.1 >nul
                         
-                        echo "=== Vérification des services ==="
-                        helm list
-                        kubectl get services | findstr "prometheus\\|grafana"
+                        echo "=== Vérification des conteneurs ==="
+                        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | findstr /I "prometheus grafana"
                         
                         echo "=== URLs d'accès ==="
-                        echo "Prometheus est accessible sur : http://localhost:30090"
-                        echo "Grafana est accessible sur : http://localhost:30300"
-                        echo "Utilisateur Grafana par défaut : admin"
-                        
-                        echo "=== Récupération du mot de passe Grafana ==="
-                        kubectl get secret grafana -o jsonpath="{.data.admin-password}" > encoded-password.txt
-                        certutil -decode encoded-password.txt grafana-password.txt
-                        del encoded-password.txt
+                        echo "Prometheus est accessible sur : http://localhost:9090"
+                        echo "Grafana est accessible sur : http://localhost:3000"
+                        echo "Utilisateur Grafana : admin/admin"
                     '''
                 }
             }
