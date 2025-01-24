@@ -157,11 +157,7 @@ pipeline {
                     bat '''
                         @echo off
                         echo "=== Configuration de l'environnement Docker ==="
-                        minikube docker-env | Out-String -Stream | ForEach-Object {
-                            if ($_ -match '^SET (.*)=(.*)$') {
-                                $env:$($matches[1]) = $matches[2]
-                            }
-                        }
+                        FOR /f "tokens=*" %%i IN ('minikube docker-env') DO @%%i
                         
                         echo "=== Vérification de la configuration Docker ==="
                         docker context ls
