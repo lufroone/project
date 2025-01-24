@@ -40,17 +40,30 @@ pipeline {
                         taskkill /F /IM "minikube.exe" 2>NUL || echo "Aucun processus minikube"
                         
                         minikube delete
-                        minikube start --driver=docker --force --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook
+                        minikube start --driver=docker --force --memory=4096 --cpus=2
                         
-                        echo "=== Démarrage du tunnel minikube en arrière-plan ==="
+                        echo "=== Installation de Helm ==="
+                        choco install kubernetes-helm -y
+                        
+                        echo "=== Ajout des repos Helm ==="
+                        helm repo add grafana https://grafana.github.io/helm-charts
+                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+                        helm repo update
+                        
+                        echo "=== Installation de Prometheus ==="
+                        helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+                        
+                        echo "=== Installation de Grafana ==="
+                        helm install grafana grafana/grafana --namespace monitoring --set service.type=NodePort --set service.nodePort=30001
+                        
+                        echo "=== Démarrage du tunnel minikube ==="
                         start /B cmd /c "minikube tunnel"
                         
-                        echo "=== Attente pour l'établissement du tunnel ==="
+                        echo "=== Attente pour l'établissement des services ==="
                         ping -n 30 127.0.0.1 >nul
                         
-                        echo "=== Vérification du tunnel ==="
-                        minikube tunnel status
-                        tasklist /FI "IMAGENAME eq minikube.exe" /FI "WINDOWTITLE eq tunnel*"
+                        echo "=== État des services de monitoring ==="
+                        kubectl get services -n monitoring
                     '''
                 }
             }
@@ -177,22 +190,22 @@ pipeline {
                 }
             }
         }
-    }
 
-    post {
-        always {
-            script {
-                bat '''
-                    echo "=== Arrêt du tunnel minikube ==="
-                    taskkill /F /IM "minikube.exe" /FI "WINDOWTITLE eq tunnel*"
-                '''
+        stage('Display Access Information') {
+            steps {
+                script {
+                    bat '''
+                        echo "=== Informations d'accès ==="
+                        echo "Grafana est accessible sur : http://localhost:30001"
+                        echo "Utilisateur par défaut : admin"
+                        kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode > grafana-password.txt
+                        echo "Mot de passe sauvegardé dans : grafana-password.txt"
+                        
+                        echo "=== URLs des services Prometheus ==="
+                        kubectl get services -n monitoring
+                    '''
+                }
             }
-        }
-        success {
-            echo 'Déploiement réussi dans les environnements Development et Production.'
-        }
-        failure {
-            echo 'Le pipeline a échoué.'
         }
     }
 }
