@@ -196,16 +196,26 @@ pipeline {
                 script {
                     bat '''
                         echo "=== Informations d'accès ==="
-                        echo "Grafana est accessible sur : http://localhost:30001"
+                        
+                        echo "=== Récupération de l'IP de minikube ==="
+                        FOR /F "tokens=* USEBACKQ" %%F IN (`minikube ip`) DO (
+                            SET MINIKUBE_IP=%%F
+                            echo Grafana est accessible sur : http://%%F:30001
+                        )
+                        
                         echo "Utilisateur par défaut : admin"
                         
                         echo "=== Récupération du mot de passe Grafana ==="
+                        del grafana-password.txt 2>nul
                         kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" > encoded-password.txt
                         certutil -decode encoded-password.txt grafana-password.txt
                         del encoded-password.txt
                         
-                        echo "=== URLs des services Prometheus ==="
-                        kubectl get services -n monitoring
+                        echo "=== État des services Grafana ==="
+                        kubectl get services -n monitoring grafana
+                        
+                        echo "=== Test de connexion à Grafana ==="
+                        kubectl run curl-test --image=curlimages/curl --rm -i --restart=Never -n monitoring -- curl -v --fail --max-time 30 http://grafana:3000/api/health || echo "Grafana n'est pas encore prêt"
                     '''
                 }
             }
