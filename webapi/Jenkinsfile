@@ -156,8 +156,15 @@ pipeline {
                 script {
                     bat '''
                         @echo off
-                        REM Configuration de l'environnement Docker de Minikube
-                        FOR /f "tokens=*" %%i IN ('minikube -p minikube docker-env') DO @%%i
+                        echo "=== Configuration de l'environnement Docker ==="
+                        minikube docker-env | Out-String -Stream | ForEach-Object {
+                            if ($_ -match '^SET (.*)=(.*)$') {
+                                $env:$($matches[1]) = $matches[2]
+                            }
+                        }
+                        
+                        echo "=== Vérification de la configuration Docker ==="
+                        docker context ls
                         
                         echo "=== Building Docker image in Minikube context ==="
                         cd webapi
@@ -166,14 +173,8 @@ pipeline {
                         echo "=== Vérification de l'image construite ==="
                         docker images | findstr %DOCKER_IMAGE%
                         
-                        echo "=== Attente pour s'assurer que l'image est disponible ==="
-                        ping -n 10 127.0.0.1 >nul
-                        
                         echo "=== Vérification dans Minikube ==="
                         minikube ssh "docker images | grep %DOCKER_IMAGE%"
-                        
-                        REM Attente supplémentaire
-                        ping -n 5 127.0.0.1 >nul
                     '''
                 }
             }
