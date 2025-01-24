@@ -73,8 +73,8 @@ pipeline {
                         echo "=== Installation de Prometheus ==="
                         docker run -d --name prometheus ^
                             -p 9090:9090 ^
-                            -v %CD%/prometheus.yml:/etc/prometheus/prometheus.yml ^
-                            prom/prometheus
+                            -v "%CD%/prometheus.yml:/etc/prometheus/prometheus.yml" ^
+                            prom/prometheus:latest
                         
                         echo "=== Installation de Grafana ==="
                         docker run -d --name grafana ^
@@ -87,12 +87,7 @@ pipeline {
                         ping -n 30 127.0.0.1 >nul
                         
                         echo "=== Vérification des conteneurs ==="
-                        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | findstr /I "prometheus grafana"
-                        
-                        echo "=== URLs d'accès ==="
-                        echo "Prometheus est accessible sur : http://localhost:9090"
-                        echo "Grafana est accessible sur : http://localhost:3000"
-                        echo "Utilisateur Grafana : admin/admin"
+                        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
                     '''
                 }
             }
