@@ -42,28 +42,41 @@ pipeline {
                         minikube delete
                         minikube start --driver=docker --force --memory=4096 --cpus=2
                         
-                        echo "=== Installation de Helm ==="
-                        choco install kubernetes-helm -y
-                        
-                        echo "=== Ajout des repos Helm ==="
-                        helm repo add grafana https://grafana.github.io/helm-charts
-                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-                        helm repo update
-                        
-                        echo "=== Installation de Prometheus ==="
-                        helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
-                        
-                        echo "=== Installation de Grafana ==="
-                        helm install grafana grafana/grafana --namespace monitoring --set service.type=NodePort --set service.nodePort=30001
-                        
                         echo "=== Démarrage du tunnel minikube ==="
                         start /B cmd /c "minikube tunnel"
                         
                         echo "=== Attente pour l'établissement des services ==="
                         ping -n 30 127.0.0.1 >nul
+                    '''
+                }
+            }
+        }
+
+        stage('Install Monitoring Stack') {
+            steps {
+                script {
+                    bat '''
+                        @echo off
+                        echo "=== Installation de Prometheus ==="
+                        docker run -d --name prometheus ^
+                            -p 9090:9090 ^
+                            prom/prometheus
                         
-                        echo "=== État des services de monitoring ==="
-                        kubectl get services -n monitoring
+                        echo "=== Installation de Grafana ==="
+                        docker run -d --name grafana ^
+                            -p 3000:3000 ^
+                            grafana/grafana
+                        
+                        echo "=== Attente de démarrage des services ==="
+                        ping -n 30 127.0.0.1 >nul
+                        
+                        echo "=== Vérification des conteneurs ==="
+                        docker ps | findstr "prometheus\\|grafana"
+                        
+                        echo "=== URLs d'accès ==="
+                        echo "Prometheus: http://localhost:9090"
+                        echo "Grafana: http://localhost:3000"
+                        echo "Utilisateur Grafana par défaut: admin/admin"
                     '''
                 }
             }
@@ -196,26 +209,13 @@ pipeline {
                 script {
                     bat '''
                         echo "=== Informations d'accès ==="
+                        echo "Prometheus est accessible sur : http://localhost:9090"
+                        echo "Grafana est accessible sur : http://localhost:3000"
+                        echo "Utilisateur Grafana par défaut : admin/admin"
                         
-                        echo "=== Récupération de l'IP de minikube ==="
-                        FOR /F "tokens=* USEBACKQ" %%F IN (`minikube ip`) DO (
-                            SET MINIKUBE_IP=%%F
-                            echo Grafana est accessible sur : http://%%F:30001
-                        )
-                        
-                        echo "Utilisateur par défaut : admin"
-                        
-                        echo "=== Récupération du mot de passe Grafana ==="
-                        del grafana-password.txt 2>nul
-                        kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" > encoded-password.txt
-                        certutil -decode encoded-password.txt grafana-password.txt
-                        del encoded-password.txt
-                        
-                        echo "=== État des services Grafana ==="
-                        kubectl get services -n monitoring grafana
-                        
-                        echo "=== Test de connexion à Grafana ==="
-                        kubectl run curl-test --image=curlimages/curl --rm -i --restart=Never -n monitoring -- curl -v --fail --max-time 30 http://grafana:3000/api/health || echo "Grafana n'est pas encore prêt"
+                        echo "=== Test des services ==="
+                        curl -v --fail --max-time 30 http://localhost:9090/-/healthy || echo "Prometheus n'est pas encore prêt"
+                        curl -v --fail --max-time 30 http://localhost:3000/api/health || echo "Grafana n'est pas encore prêt"
                     '''
                 }
             }
